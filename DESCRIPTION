@@ -1,0 +1,29 @@
+Package: TreeArchi
+Title: Tools for Exploring Size-Independent and Nonlinear Tree Architecture
+Version: 0.1.0
+Authors@R: 
+    person("Elisa", "Sillfors", email = "elisa.sillfors@helsinki.fi", role = c("aut", "cre"))
+Description: Tools for analysing tree architectural traits through size-controlled 
+    models that capture nonlinear and interaction-dependent relationships among 
+    traits. The package is designed to identify architectural coordination and 
+    network structure beyond simple allometric scaling.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    broom.mixed,
+    dplyr,
+    ggplot2,
+    ggrepel,
+    grid,
+    lme4,
+    lmerTest,
+    patchwork,
+    performance,
+    purrr,
+    readr,
+    stats,
+    stringr,
+    tibble,
+    tidyr
