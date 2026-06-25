@@ -1,3 +1,6 @@
+#' Run group-specific TreeArchi MLR workflow
+#'
+#' @export
 run_treearchi_group_mlr <- function(data_path,
                                     out_base,
                                     response_var,
