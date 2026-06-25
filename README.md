@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="man/figures/logo.png" width="450">
+</p>
+
 # TreeArchi
 
 TreeArchi is an R package for analysing tree architectural trait relationships using size-controlled linear mixed-effects models.
