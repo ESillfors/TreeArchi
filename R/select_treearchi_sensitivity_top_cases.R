@@ -43,9 +43,19 @@ select_treearchi_sensitivity_top_cases <- function(
     "focal_var",
     "partner_var",
     "focal_class",
-    "partner_class",
     "local_beta"
   )
+
+  fallback_cols <- c(
+    "partner_class",
+    "partner_mean"
+  )
+
+  for (cc in fallback_cols) {
+    if (!cc %in% names(effects_tbl)) {
+      effects_tbl[[cc]] <- NA
+    }
+  }
 
   missing <- setdiff(needed, names(effects_tbl))
 

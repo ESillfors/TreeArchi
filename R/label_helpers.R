@@ -45,10 +45,23 @@ pretty_names <- c(
 )
 
 label_term <- function(term, labels_map = pretty_names) {
-  if (term == "alpha_volume_m3") return(paste0(labels_map[[term]] %||% term, " [3D]"))
-  if (term == "projected_area_m2") return(paste0(labels_map[[term]] %||% term, " [2D]"))
+  vapply(
+    as.character(term),
+    function(tt) {
+      base <- if (!is.null(labels_map) && tt %in% names(labels_map)) unname(labels_map[tt]) else tt
 
-  labels_map[[term]] %||% term
+      if (tt == "alpha_volume_m3") {
+        base <- paste0(base, " [3D]")
+      }
+
+      if (tt == "projected_area_m2") {
+        base <- paste0(base, " [2D]")
+      }
+
+      base
+    },
+    character(1)
+  )
 }
 
 pretty_var_name <- function(x, labels_map = pretty_names) {

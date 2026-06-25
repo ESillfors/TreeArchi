@@ -694,113 +694,122 @@ run_treearchi_group_mlr <- function(data_path,
   group_levels <- levels(dat[[group_var]])
   all_effects <- list()
 
-  if (length(interaction_pairs) > 0) {
+  # ------------------------------------------------------------
+  # Interaction local effects
+  # ------------------------------------------------------------
+
+  if (!is.null(interaction_pairs) && length(interaction_pairs) > 0) {
 
     for (pair in interaction_pairs) {
 
-      focal_var <- pair[1]
-      partner_var <- pair[2]
+      interaction_views <- list(
+        list(focal = pair[[1]], partner = pair[[2]]),
+        list(focal = pair[[2]], partner = pair[[1]])
+      )
 
-      grid_df <- expand.grid(
-        focal_class = c("low", "medium", "high"),
-        partner_class = c("low", "medium", "high"),
-        group_level = group_levels,
-        stringsAsFactors = FALSE
-      ) |>
-        tibble::as_tibble()
+      for (view in interaction_views) {
 
-      grid_df <- grid_df |>
-        dplyr::rowwise() |>
-        dplyr::mutate(
-          focal_value = unname(make_3class_means_for_group(dat, focal_var, group_level)[focal_class]),
-          partner_value = unname(make_3class_means_for_group(dat, partner_var, group_level)[partner_class])
+        focal_var <- view$focal
+        partner_var <- view$partner
+
+        grid_df <- expand.grid(
+          focal_class = c("low", "medium", "high"),
+          partner_class = c("low", "medium", "high"),
+          group_level = group_levels,
+          stringsAsFactors = FALSE
         ) |>
-        dplyr::ungroup()
+          tibble::as_tibble()
 
-      grid_df$local_beta <- purrr::pmap_dbl(
-        list(grid_df$focal_value, grid_df$partner_value, grid_df$group_level),
-        function(focal_value, partner_value, group_level) {
-          values_tmp <- list()
-          values_tmp[[partner_var]] <- partner_value
+        grid_df <- grid_df |>
+          dplyr::rowwise() |>
+          dplyr::mutate(
+            focal_value = unname(make_3class_means_for_group(dat, focal_var, group_level)[focal_class]),
+            partner_value = unname(make_3class_means_for_group(dat, partner_var, group_level)[partner_class])
+          ) |>
+          dplyr::ungroup()
 
-          calc_group_local_effect(
-            model = model,
-            dat = dat,
+        grid_df$local_beta <- purrr::pmap_dbl(
+          list(grid_df$focal_value, grid_df$partner_value, grid_df$group_level),
+          function(focal_value, partner_value, group_level) {
+            values_tmp <- list()
+            values_tmp[[partner_var]] <- partner_value
+
+            calc_group_local_effect(
+              model = model,
+              dat = dat,
+              focal_var = focal_var,
+              group_level = group_level,
+              focal_value = focal_value,
+              values = values_tmp
+            )
+          }
+        )
+
+        grid_df <- grid_df |>
+          dplyr::mutate(
+            effect_type = "interaction",
             focal_var = focal_var,
-            group_level = group_level,
-            focal_value = focal_value,
-            values = values_tmp
+            partner_var = partner_var,
+            focal_pretty = label_term(focal_var),
+            partner_pretty = label_term(partner_var),
+            focal_clean = strip_units_label(focal_pretty),
+            partner_clean = strip_units_label(partner_pretty),
+            approx_pct = 100 * local_beta,
+            exact_pct = 100 * (exp(local_beta) - 1),
+            focal_class = factor(focal_class, levels = c("low", "medium", "high")),
+            partner_class = factor(partner_class, levels = c("low", "medium", "high")),
+            group_level = factor(group_level, levels = group_levels),
+            group_label = paste0(group_var, " ", group_level)
           )
+
+        out_name <- paste0(
+          "INTERACTION_EFFECT_",
+          safe_filename(focal_var),
+          "_BY_",
+          safe_filename(partner_var)
+        )
+
+        safe_write_csv(grid_df, file.path(dir_eff, paste0(out_name, ".csv")))
+        all_effects[[out_name]] <- grid_df
+
+        if (isTRUE(make_group_lineplots)) {
+
+          pal <- plot_cols_default[seq_along(group_levels)]
+          names(pal) <- group_levels
+
+          p <- ggplot2::ggplot(
+            grid_df,
+            ggplot2::aes(
+              x = as.numeric(focal_class),
+              y = local_beta,
+              color = group_level,
+              group = group_level
+            )
+          ) +
+            ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "grey55", linewidth = 1.0) +
+            ggplot2::geom_line(linewidth = 2.0, alpha = 0.85) +
+            ggplot2::facet_wrap(~ partner_class, nrow = 1) +
+            ggplot2::scale_x_continuous(
+              breaks = c(1, 2, 3),
+              labels = c("Low", "Medium", "High")
+            ) +
+            ggplot2::scale_color_manual(values = pal, name = group_var) +
+            ggplot2::labs(
+              title = paste0(unique(grid_df$focal_clean)[1], " effect by ", unique(grid_df$partner_clean)[1]),
+              x = paste0(unique(grid_df$focal_clean)[1], " class"),
+              y = paste0("Local marginal effect to ", strip_units_label(label_term(response_var)))
+            ) +
+            theme_effect(base_size = 19)
+
+          safe_ggsave(file.path(dir_lines, paste0(out_name, ".png")), p, 16.5, 7.2, 600)
         }
-      )
-
-      grid_df <- grid_df |>
-        dplyr::mutate(
-          effect_type = "interaction",
-          focal_var = focal_var,
-          partner_var = partner_var,
-          focal_pretty = label_term(focal_var),
-          partner_pretty = label_term(partner_var),
-          focal_clean = strip_units_label(focal_pretty),
-          partner_clean = strip_units_label(partner_pretty),
-          approx_pct = 100 * local_beta,
-          exact_pct = 100 * (exp(local_beta) - 1),
-          focal_class = factor(focal_class, levels = c("low", "medium", "high")),
-          partner_class = factor(partner_class, levels = c("low", "medium", "high")),
-          group_level = factor(group_level, levels = group_levels),
-          group_label = paste0(group_var, " ", group_level),
-          facet_label = factor(
-            paste0(partner_clean, ": ", as.character(partner_class)),
-            levels = paste0(unique(partner_clean)[1], ": ", c("low", "medium", "high"))
-          )
-        )
-
-      out_name <- paste0(
-        "EFFECT_",
-        safe_filename(focal_var),
-        "_BY_",
-        safe_filename(partner_var)
-      )
-
-      safe_write_csv(grid_df, file.path(dir_eff, paste0(out_name, ".csv")))
-      all_effects[[out_name]] <- grid_df
-
-      pal <- plot_cols_default[seq_along(group_levels)]
-      names(pal) <- group_levels
-
-      p <- ggplot2::ggplot(
-        grid_df,
-        ggplot2::aes(
-          x = as.numeric(focal_class),
-          y = local_beta,
-          color = group_level,
-          group = group_level
-        )
-      ) +
-        ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "grey55", linewidth = 1.0) +
-        ggplot2::geom_line(linewidth = 2.0, alpha = 0.85, lineend = "butt", linejoin = "mitre") +
-        ggplot2::facet_wrap(~ facet_label, nrow = 1) +
-        ggplot2::scale_x_continuous(
-          breaks = c(1, 2, 3),
-          labels = c("Low", "Medium", "High"),
-          expand = ggplot2::expansion(mult = c(0.08, 0.08))
-        ) +
-        ggplot2::scale_color_manual(
-          values = pal,
-          name = group_var
-        ) +
-        ggplot2::labs(
-          title = paste0(unique(grid_df$focal_clean)[1], " effect to ", strip_units_label(label_term(response_var))),
-          x = paste0(unique(grid_df$focal_clean)[1], " class"),
-          y = paste0("Local marginal effect to ", strip_units_label(label_term(response_var)))
-        ) +
-        theme_effect(base_size = 19)
-
-      if (isTRUE(make_group_lineplots)) {
-        safe_ggsave(file.path(dir_lines, paste0(out_name, ".png")), p, 16.5, 7.2, 600)
       }
     }
   }
+
+  # ------------------------------------------------------------
+  # Single local effects
+  # ------------------------------------------------------------
 
   for (focal_var in predictor_vars) {
 
@@ -837,8 +846,11 @@ run_treearchi_group_mlr <- function(data_path,
         effect_type = "single",
         focal_var = focal_var,
         partner_var = NA_character_,
+        partner_class = factor(NA_character_, levels = c("low", "medium", "high")),
         focal_pretty = label_term(focal_var),
+        partner_pretty = NA_character_,
         focal_clean = strip_units_label(focal_pretty),
+        partner_clean = NA_character_,
         approx_pct = 100 * local_beta,
         exact_pct = 100 * (exp(local_beta) - 1),
         focal_class = factor(focal_class, levels = c("low", "medium", "high")),
@@ -850,40 +862,6 @@ run_treearchi_group_mlr <- function(data_path,
 
     safe_write_csv(grid_df, file.path(dir_eff, paste0(out_name, ".csv")))
     all_effects[[out_name]] <- grid_df
-
-    pal <- plot_cols_default[seq_along(group_levels)]
-    names(pal) <- group_levels
-
-    p <- ggplot2::ggplot(
-      grid_df,
-      ggplot2::aes(
-        x = as.numeric(focal_class),
-        y = local_beta,
-        color = group_level,
-        group = group_level
-      )
-    ) +
-      ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "grey55", linewidth = 1.0) +
-      ggplot2::geom_line(linewidth = 2.0, alpha = 0.85, lineend = "butt", linejoin = "mitre") +
-      ggplot2::scale_x_continuous(
-        breaks = c(1, 2, 3),
-        labels = c("Low", "Medium", "High"),
-        expand = ggplot2::expansion(mult = c(0.08, 0.08))
-      ) +
-      ggplot2::scale_color_manual(
-        values = pal,
-        name = group_var
-      ) +
-      ggplot2::labs(
-        title = paste0(unique(grid_df$focal_clean)[1], " effect to ", strip_units_label(label_term(response_var))),
-        x = paste0(unique(grid_df$focal_clean)[1], " class"),
-        y = paste0("Local marginal effect to ", strip_units_label(label_term(response_var)))
-      ) +
-      theme_effect(base_size = 19)
-
-    if (isTRUE(make_group_lineplots)) {
-      safe_ggsave(file.path(dir_lines, paste0(out_name, ".png")), p, 11.5, 7.2, 600)
-    }
   }
 
   all_effects_tbl <- dplyr::bind_rows(all_effects, .id = "effect_id")

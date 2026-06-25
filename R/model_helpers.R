@@ -1,3 +1,5 @@
+`%>%` <- magrittr::`%>%`
+
 suppressPackageStartupMessages({
   library(dplyr)
   library(purrr)
@@ -5,7 +7,7 @@ suppressPackageStartupMessages({
 })
 
 fit_lmer <- function(formula_obj, dat) {
-  lmerTest::lmer(
+  lme4::lmer(
     formula_obj,
     data = dat,
     REML = FALSE,
@@ -85,10 +87,13 @@ backward_select_lmm <- function(dat, resp, forced, candidates, rand_terms,
       tibble::tibble(drop = term_to_drop, ok = TRUE, crit = crit_v, model = list(trial_mod))
     })
 
-    trials_ok <- trials %>% dplyr::filter(ok) %>% dplyr::arrange(crit)
+    trials_ok <- dplyr::arrange(
+      dplyr::filter(trials, ok),
+      crit
+    )
     if (nrow(trials_ok) == 0) break
 
-    best <- trials_ok %>% dplyr::slice(1)
+    best <- dplyr::slice(trials_ok, 1)
 
     if (is.finite(best$crit) && best$crit < (current_ic_v - tol)) {
       term_drop     <- best$drop

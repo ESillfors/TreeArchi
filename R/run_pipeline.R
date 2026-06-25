@@ -55,7 +55,7 @@ run_treearchi_mlr <- function(data_path,
   dat_model <- prepare_model_data(
     df = dat0,
     response = response_var,
-    predictors = predictor_vars
+    predictors = unique(c(forced_var, predictor_vars))
   )
 
   dat_model[[random_effect_var]] <- dat0[[random_effect_var]]

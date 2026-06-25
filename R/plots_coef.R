@@ -40,6 +40,10 @@ coef_plot_lmm <- function(model, model_name, out_dir, labels_map, dat = NULL, re
       )
   }
 
+  if (!"p.value" %in% names(td_plot)) {
+    td_plot$p.value <- NA_real_
+  }
+
   td_plot <- td_plot %>%
     dplyr::mutate(
       p_label = ifelse(is.na(p.value), "", paste0("p ", safe_p(p.value))),
@@ -188,7 +192,7 @@ coef_plot_lmm <- function(model, model_name, out_dir, labels_map, dat = NULL, re
 
     ggplot2::labs(
       title = "Fixed-effect coefficients",
-      subtitle = paste0(model_name, " • interaktion terms included as rows"),
+      subtitle = paste0(model_name, " • interaction terms included as rows"),
       x = "Adjusted estimate / marginal effect (95% CI where available)",
       y = NULL,
       shape = NULL,
@@ -211,7 +215,10 @@ coef_plot_lmm <- function(model, model_name, out_dir, labels_map, dat = NULL, re
 
     ggplot2::guides(
       shape = ggplot2::guide_legend(nrow = 1, override.aes = list(size = 3.5)),
-      fill  = ggplot2::guide_legend(nrow = 1, override.aes = list(shape = c(21, 23, 22, 24, 21, 25), size = 3.5))
+      fill  = ggplot2::guide_legend(
+        nrow = 1,
+        override.aes = list(shape = c(21, 23, 22, 24, 21, 25), size = 3.5)
+      )
     )
 
   safe_ggsave(
@@ -223,5 +230,6 @@ coef_plot_lmm <- function(model, model_name, out_dir, labels_map, dat = NULL, re
   )
 
   safe_write_csv(td_plot, file.path(out_dir, "coef_fixed_table.csv"))
+
   p
 }

@@ -19,6 +19,7 @@ Imports:
     grid,
     lme4,
     lmerTest,
+    magrittr,
     patchwork,
     performance,
     purrr,

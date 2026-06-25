@@ -367,7 +367,10 @@ make_diag_plots_lmm <- function(model,
   )
 
   # Combined 4-panel diagnostic figure
-  p_combined <- (p1 + p2) / (p3 + p4) +
+  p_combined <- patchwork::wrap_plots(
+    p1, p2, p3, p4,
+    ncol = 2
+  ) +
     patchwork::plot_annotation(
       title = "Extended diagnostics",
       subtitle = response_label,
