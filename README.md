@@ -8,7 +8,6 @@ TreeArchi was developed for terrestrial laser scanning (TLS)-derived tree archit
 
 ---
 
-
 ## Features
 
 - Size-controlled linear mixed-effects models
@@ -35,7 +34,41 @@ remotes::install_github("ESillfors/TreeArchi")
 
 ---
 
+## Data input format
+
+TreeArchi expects a tabular dataset in **CSV** format.
+
+- Both **comma-separated (`.csv`)** and **semicolon-separated (`;`)** CSV files are supported. The separator is detected automatically.
+- The first row must contain column names.
+- Each row represents one observation (e.g. one tree).
+
+### Required variables
+
+| Argument | Description | Expected type |
+|----------|-------------|---------------|
+| `response_var` | Response variable | Numeric |
+| `forced_var` | Predictor that is always retained in the model | Numeric |
+| `predictor_vars` | Candidate predictor variables | Numeric |
+| `random_effect_var` | Grouping variable for the random effect | Character or factor |
+| `id_col` | Unique observation identifier | Character or integer |
+
+TreeArchi does **not** require predefined trait names. The variables supplied to `response_var`, `forced_var`, `predictor_vars`, `random_effect_var`, and `id_col` can have any names, provided they match the corresponding column names in the input dataset exactly.
+
+Rows containing missing values in the selected variables are removed automatically before model fitting.
+
+---
+
 ## Basic workflow
+
+Before running the analysis, you normally only need to modify the following arguments:
+
+- `data_path`
+- `out_base`
+- `response_var`
+- `forced_var`
+- `predictor_vars`
+
+The remaining arguments have sensible default values but can be changed if required. For example, the default random effect is `genus`, but any grouping variable can be supplied through `random_effect_var`. Likewise, the default observation ID is `tls_id`, but any unique identifier column can be used via `id_col`.
 
 ```r
 library(TreeArchi)
@@ -52,8 +85,7 @@ res <- run_treearchi_mlr(
     "tree_height_m",
     "alpha_volume_m3",
     "csh_raw",
-    "branch_len",
-    "tree_vol_m3"
+    "branch_len"
   ),
   random_effect_var = "genus",
   id_col = "tls_id",
