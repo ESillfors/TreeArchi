@@ -3,4 +3,7 @@
 export(collect_treearchi_sensitivity_effects)
 export(make_treearchi_shift_groups)
 export(redraw_treearchi_sensitivity_lineplots)
+export(run_treearchi_mlr)
 export(run_treearchi_sensitivity)
+export(select_treearchi_convergence_cases)
+export(select_treearchi_sensitivity_top_cases)

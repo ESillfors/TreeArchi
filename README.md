@@ -1,24 +1,39 @@
 # TreeArchi
 
-TreeArchi is an R package for exploring tree architectural trait networks using size-controlled multiple linear regression and mixed-effects models. The package is designed to identify nonlinear, interaction-dependent, and group-specific relationships among architectural traits.
+TreeArchi is an R package for analysing tree architectural trait relationships using size-controlled linear mixed-effects models.
 
-## Current features
+The package provides a reproducible workflow for model fitting, automatic backward BIC model selection, nonlinear and interaction modelling, local marginal effect estimation, diagnostic evaluation, and publication-ready visualisations.
 
-- Size-controlled multiple linear regression
-- Mixed-effects models with genus-level random effects
-- Group-specific MLR analyses
-- Height-DBH shift grouping
-- Local effect tables
+TreeArchi was developed for terrestrial laser scanning (TLS)-derived tree architectural traits, but the workflow can be applied to other datasets containing continuous structural variables.
+
+---
+
+
+## Features
+
+- Size-controlled linear mixed-effects models
+- Automatic backward BIC model selection
+- Quadratic effects
+- Two-way interaction effects
+- Local marginal effect estimation
+- Coefficient plots
+- Extended model diagnostics
 - Local effect lineplots
-- Diagnostic plots
+- Group-specific analyses
+- Height–DBH shift grouping
+- Sensitivity analyses
 - Organized output folders
+
+---
 
 ## Installation
 
 ```r
-# install.packages("devtools")
-devtools::install_github("YOUR_USERNAME/TreeArchi")
+# install.packages("remotes")
+remotes::install_github("ESillfors/TreeArchi")
 ```
+
+---
 
 ## Basic workflow
 
@@ -26,12 +41,13 @@ devtools::install_github("YOUR_USERNAME/TreeArchi")
 library(TreeArchi)
 
 data_path <- "path/to/your/data.csv"
-out_base <- "path/to/output/folder"
+out_base  <- "path/to/output/folder"
 
-run_treearchi_mlr(
+res <- run_treearchi_mlr(
   data_path = data_path,
   out_base = out_base,
   response_var = "projected_area_m2",
+  forced_var = "tree_vol_m3",
   predictor_vars = c(
     "tree_height_m",
     "alpha_volume_m3",
@@ -41,21 +57,17 @@ run_treearchi_mlr(
   ),
   random_effect_var = "genus",
   id_col = "tls_id",
-  quadratic_vars = c(
-    "tree_height_m",
-    "alpha_volume_m3",
-    "tree_vol_m3"
-  ),
-  interaction_pairs = list(
-    c("tree_height_m", "alpha_volume_m3"),
-    c("tree_height_m", "tree_vol_m3"),
-    c("alpha_volume_m3", "tree_vol_m3")
-  ),
   analysis_tag = "BASIC_MLR"
 )
 ```
 
+The function creates a timestamped output folder containing model summaries, coefficient plots, local marginal effect tables, diagnostic plots, and local effect visualisations.
+
+---
+
 ## Group-specific analysis
+
+TreeArchi can also run group-specific mixed-effects models, for example across plots, treatment groups, or height–DBH shift groups.
 
 ```r
 run_treearchi_group_mlr(
@@ -88,7 +100,9 @@ run_treearchi_group_mlr(
 )
 ```
 
-## Height-DBH shift groups
+---
+
+## Height–DBH shift groups
 
 TreeArchi can classify trees according to whether they are shorter or taller than expected for their DBH.
 
@@ -109,31 +123,22 @@ Available modes:
 
 - `"binary"`: creates two groups, `shorter` and `taller`
 - `"three_class"`: creates three groups, `shorter`, `expected`, and `taller`
-- `"extreme"`: creates two groups, `shorter` and `taller`, while trees close to the expected height-DBH relationship are set to `NA`
+- `"extreme"`: creates two groups, `shorter` and `taller`, while trees close to the expected height–DBH relationship are set to `NA`
 
-Example:
+The resulting group variable can be used in `run_treearchi_group_mlr()`.
+
+---
+
+## Sensitivity analysis
+
+TreeArchi includes a sensitivity framework for evaluating how trimming selected observations influences local marginal effects and interaction patterns.
 
 ```r
-dat <- make_treearchi_shift_groups(
-  dat,
-  height_var = "tree_height_m",
-  dbh_var = "dbh_m",
-  mode = "binary"
-)
-
-shift_data_path <- "path/to/data_with_shift_groups.csv"
-
-write.csv(
-  dat,
-  shift_data_path,
-  row.names = FALSE
-)
-
-run_treearchi_group_mlr(
-  data_path = shift_data_path,
-  out_base = "path/to/output/folder",
+run_treearchi_sensitivity(
+  data_path = data_path,
+  out_base = out_base,
   response_var = "projected_area_m2",
-  group_var = "height_dbh_shift_group",
+  group_var = "plot",
   predictor_vars = c(
     "tree_height_m",
     "alpha_volume_m3",
@@ -141,38 +146,59 @@ run_treearchi_group_mlr(
     "branch_len",
     "tree_vol_m3"
   ),
-  group_reference = "shorter",
+  trim_vars = c("branch_len", "csh_raw"),
+  trim_props = c(0, 0.10, 0.20, 0.30),
+  trim_tails = c("lower", "upper"),
   random_effect_var = "genus",
   id_col = "tls_id",
-  quadratic_vars = c(
-    "tree_height_m",
-    "alpha_volume_m3",
-    "tree_vol_m3"
-  ),
-  interaction_pairs = list(
-    c("tree_height_m", "alpha_volume_m3"),
-    c("tree_height_m", "tree_vol_m3"),
-    c("alpha_volume_m3", "tree_vol_m3")
-  ),
-  analysis_tag = "HEIGHT_DBH_SHIFT_BINARY",
-  run_diagnostics = TRUE
+  analysis_tag = "SENSITIVITY"
 )
 ```
 
+---
+
 ## Output structure
 
-TreeArchi creates organized output folders:
+Each `run_treearchi_mlr()` analysis creates a timestamped output folder with the following structure:
 
 ```text
-01_model
-02_coefficients
-03_local_effects
-04_diagnostics
-05_local_effect_lineplots
+01_model/
+02_coefficients/
+03_local_effects/
+04_diagnostics/
+05_local_effect_lineplots/
 ```
 
-These folders contain model summaries, coefficient tables, local effect tables, diagnostic plots, and local effect visualizations.
+| Folder | Contents |
+|---|---|
+| `01_model/` | Selected model, fixed-effect estimates, model summary, BIC selection history |
+| `02_coefficients/` | Coefficient plot and coefficient table |
+| `03_local_effects/` | Local marginal effect tables |
+| `04_diagnostics/` | Residual diagnostics, Q–Q plot, leverage plot, diagnostic values |
+| `05_local_effect_lineplots/` | Local marginal effect visualisations |
 
-## Notes
+---
 
-TreeArchi is currently under active development. The package is intended for research workflows involving tree architectural traits, TLS-derived structural variables, and size-controlled trait network analyses.
+## Main functions
+
+```r
+run_treearchi_mlr()
+run_treearchi_group_mlr()
+run_treearchi_sensitivity()
+make_treearchi_shift_groups()
+collect_treearchi_sensitivity_effects()
+select_treearchi_sensitivity_top_cases()
+select_treearchi_convergence_cases()
+```
+
+---
+
+## Status
+
+TreeArchi is under active development and is currently intended for research workflows involving TLS-derived tree architectural traits, structural ecology, and size-controlled trait relationship modelling.
+
+---
+
+## Citation
+
+If you use TreeArchi in scientific work, please cite the accompanying manuscript once available.

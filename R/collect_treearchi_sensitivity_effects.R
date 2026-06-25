@@ -16,7 +16,7 @@ collect_treearchi_sensitivity_effects <- function(
 
   effect_files <- list.files(
     sensitivity_dir,
-    pattern = "LOCAL_EFFECTS.*\\.csv$|ALL_LOCAL_EFFECTS.*\\.csv$|ALL_ANALYTIC_MARGINAL_EFFECTS.*\\.csv$",
+    pattern = "LOCAL_EFFECTS.*\\.csv$|ALL_LOCAL_EFFECTS.*\\.csv$|ALL_ANALYTIC_MARGINAL_EFFECTS.*\\.csv$|ALL_GROUP_LOCAL_EFFECTS.*\\.csv$",
     recursive = TRUE,
     full.names = TRUE
   )
@@ -42,17 +42,13 @@ collect_treearchi_sensitivity_effects <- function(
 
     x$source_file <- path
 
-    # --------------------------------------------------
-    # Extract TGshorter_branch_len_l10 style folder
-    # --------------------------------------------------
-
     path_parts <- strsplit(
       normalizePath(path, winslash = "/", mustWork = FALSE),
       "/"
     )[[1]]
 
     tg_dirs <- path_parts[
-      grepl("^TG(shorter|taller)_", path_parts)
+      grepl("^TG.+_[lu][0-9]+$", path_parts)
     ]
 
     if (length(tg_dirs) >= 1) {
@@ -77,10 +73,14 @@ collect_treearchi_sensitivity_effects <- function(
         sub("^[lu]", "", trim_tail_prop)
       ) / 100
 
-      trim_var_value <- paste(
-        parts[2:(length(parts) - 1)],
-        collapse = "_"
-      )
+      if (length(parts) > 2) {
+        trim_var_value <- paste(
+          parts[2:(length(parts) - 1)],
+          collapse = "_"
+        )
+      } else {
+        trim_var_value <- NA_character_
+      }
 
     } else {
 

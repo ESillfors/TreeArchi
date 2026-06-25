@@ -1,3 +1,6 @@
+#' Run the main TreeArchi MLR workflow
+#'
+#' @export
 run_treearchi_mlr <- function(data_path,
                               out_base,
                               response_var,

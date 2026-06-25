@@ -9,11 +9,10 @@ run_treearchi_group_mlr <- function(data_path,
                                     quadratic_vars = NULL,
                                     interaction_pairs = NULL,
                                     analysis_tag = "GROUP_MLR",
-                                    run_diagnostics = TRUE) {
+                                    run_diagnostics = TRUE,
+                                    make_coef_plot = TRUE,
+                                    make_group_lineplots = TRUE) {
 
-  # ------------------------------------------------------------
-  # Packages
-  # ------------------------------------------------------------
   requireNamespace("dplyr")
   requireNamespace("tidyr")
   requireNamespace("purrr")
@@ -28,9 +27,6 @@ run_treearchi_group_mlr <- function(data_path,
 
   `%||%` <- function(a, b) if (!is.null(a)) a else b
 
-  # ------------------------------------------------------------
-  # Small helpers
-  # ------------------------------------------------------------
   safe_filename <- function(x, max_chars = 80) {
     x <- as.character(x)
     x <- gsub("[^A-Za-z0-9_\\.-]", "_", x)
@@ -134,9 +130,6 @@ run_treearchi_group_mlr <- function(data_path,
     }, character(1))
   }
 
-  # ------------------------------------------------------------
-  # Transform helpers
-  # ------------------------------------------------------------
   metric_vars_allow <- c(
     "AGB_TLS",
     "dbh_m", "tree_height_m", "csh_raw", "ch_raw", "sbl", "sbd", "sbr",
@@ -232,9 +225,6 @@ run_treearchi_group_mlr <- function(data_path,
       dplyr::pull(value)
   }
 
-  # ------------------------------------------------------------
-  # Model helpers
-  # ------------------------------------------------------------
   fit_lmer <- function(formula_obj, dat) {
     lme4::lmer(
       formula_obj,
@@ -293,9 +283,6 @@ run_treearchi_group_mlr <- function(data_path,
     as.formula(formula_text)
   }
 
-  # ------------------------------------------------------------
-  # Analytic coefficient helpers
-  # ------------------------------------------------------------
   split_term <- function(term) {
     strsplit(term, ":", fixed = TRUE)[[1]]
   }
@@ -376,9 +363,6 @@ run_treearchi_group_mlr <- function(data_path,
     effect
   }
 
-  # ------------------------------------------------------------
-  # Plot theme
-  # ------------------------------------------------------------
   plot_cols_default <- c(
     "#faa916", "#05668d", "#7D8FE6", "#6e1423",
     "#034078", "#db7c26", "#5c8001", "#8B5CF6",
@@ -405,9 +389,6 @@ run_treearchi_group_mlr <- function(data_path,
       )
   }
 
-  # ------------------------------------------------------------
-  # Diagnostics
-  # ------------------------------------------------------------
   make_diag_plots_lmm <- function(model, dat, out_dir, id_col = "tls_id", label_n = 5) {
     dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -523,9 +504,6 @@ run_treearchi_group_mlr <- function(data_path,
     invisible(dd)
   }
 
-  # ------------------------------------------------------------
-  # Output folders
-  # ------------------------------------------------------------
   run_tag <- paste0(
     safe_filename(analysis_tag, 30),
     "_",
@@ -548,12 +526,15 @@ run_treearchi_group_mlr <- function(data_path,
   dir.create(dir_model, recursive = TRUE, showWarnings = FALSE)
   dir.create(dir_coef, recursive = TRUE, showWarnings = FALSE)
   dir.create(dir_eff, recursive = TRUE, showWarnings = FALSE)
-  dir.create(dir_diag, recursive = TRUE, showWarnings = FALSE)
-  dir.create(dir_lines, recursive = TRUE, showWarnings = FALSE)
 
-  # ------------------------------------------------------------
-  # Load and prepare data
-  # ------------------------------------------------------------
+  if (isTRUE(run_diagnostics)) {
+    dir.create(dir_diag, recursive = TRUE, showWarnings = FALSE)
+  }
+
+  if (isTRUE(make_group_lineplots)) {
+    dir.create(dir_lines, recursive = TRUE, showWarnings = FALSE)
+  }
+
   raw <- read_messy_csv(data_path)
 
   needed_cols <- unique(c(
@@ -604,9 +585,6 @@ run_treearchi_group_mlr <- function(data_path,
 
   safe_write_csv(dat, file.path(dir_model, "DATA_USED_AFTER_LOG_AND_CENTERING.csv"))
 
-  # ------------------------------------------------------------
-  # Fit model
-  # ------------------------------------------------------------
   if (is.null(quadratic_vars)) {
     quadratic_vars <- character(0)
   }
@@ -651,9 +629,6 @@ run_treearchi_group_mlr <- function(data_path,
   )
   safe_write_csv(r2_tbl, file.path(dir_model, "R2.csv"))
 
-  # ------------------------------------------------------------
-  # Coefficient plot
-  # ------------------------------------------------------------
   coef_tbl <- fixed_tbl |>
     dplyr::filter(term != "(Intercept)") |>
     dplyr::mutate(
@@ -668,41 +643,41 @@ run_treearchi_group_mlr <- function(data_path,
     dplyr::arrange(estimate) |>
     dplyr::mutate(term_label = factor(term_label, levels = term_label))
 
-  p_coef <- ggplot2::ggplot(coef_tbl, ggplot2::aes(x = estimate, y = term_label, color = term_type)) +
-    ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "grey55", linewidth = 1.1) +
-    ggplot2::geom_errorbarh(
-      ggplot2::aes(xmin = conf.low, xmax = conf.high),
-      height = 0,
-      linewidth = 1.5,
-      lineend = "round"
-    ) +
-    ggplot2::geom_point(size = 4.2) +
-    ggplot2::scale_color_manual(
-      values = c(
-        "Group intercept" = "grey35",
-        "Main effect" = "#006D77",
-        "Quadratic" = "#BC6C25",
-        "Interaction" = "#B22234"
+  if (isTRUE(make_coef_plot)) {
+    p_coef <- ggplot2::ggplot(coef_tbl, ggplot2::aes(x = estimate, y = term_label, color = term_type)) +
+      ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "grey55", linewidth = 1.1) +
+      ggplot2::geom_errorbarh(
+        ggplot2::aes(xmin = conf.low, xmax = conf.high),
+        height = 0,
+        linewidth = 1.5,
+        lineend = "round"
+      ) +
+      ggplot2::geom_point(size = 4.2) +
+      ggplot2::scale_color_manual(
+        values = c(
+          "Group intercept" = "grey35",
+          "Main effect" = "#006D77",
+          "Quadratic" = "#BC6C25",
+          "Interaction" = "#B22234"
+        )
+      ) +
+      ggplot2::labs(
+        title = "Group-specific fixed-effect coefficients",
+        x = "Estimate",
+        y = NULL,
+        color = NULL
+      ) +
+      theme_effect(base_size = 13) +
+      ggplot2::theme(
+        axis.text.y = ggplot2::element_text(size = 9.5, face = "bold", color = "black"),
+        legend.position = "bottom"
       )
-    ) +
-    ggplot2::labs(
-      title = "Group-specific fixed-effect coefficients",
-      x = "Estimate",
-      y = NULL,
-      color = NULL
-    ) +
-    theme_effect(base_size = 13) +
-    ggplot2::theme(
-      axis.text.y = ggplot2::element_text(size = 9.5, face = "bold", color = "black"),
-      legend.position = "bottom"
-    )
 
-  safe_ggsave(file.path(dir_coef, "coef_fixed.png"), p_coef, 15.5, 13.5, 420)
+    safe_ggsave(file.path(dir_coef, "coef_fixed.png"), p_coef, 15.5, 13.5, 420)
+  }
+
   safe_write_csv(coef_tbl, file.path(dir_coef, "coef_fixed_table.csv"))
 
-  # ------------------------------------------------------------
-  # Diagnostics
-  # ------------------------------------------------------------
   if (isTRUE(run_diagnostics)) {
     make_diag_plots_lmm(
       model = model,
@@ -713,14 +688,9 @@ run_treearchi_group_mlr <- function(data_path,
     )
   }
 
-  # ------------------------------------------------------------
-  # Analytic local effects
-  # ------------------------------------------------------------
   group_levels <- levels(dat[[group_var]])
-
   all_effects <- list()
 
-  # interaction effects
   if (length(interaction_pairs) > 0) {
 
     for (pair in interaction_pairs) {
@@ -823,11 +793,12 @@ run_treearchi_group_mlr <- function(data_path,
         ) +
         theme_effect(base_size = 19)
 
-      safe_ggsave(file.path(dir_lines, paste0(out_name, ".png")), p, 16.5, 7.2, 600)
+      if (isTRUE(make_group_lineplots)) {
+        safe_ggsave(file.path(dir_lines, paste0(out_name, ".png")), p, 16.5, 7.2, 600)
+      }
     }
   }
 
-  # single effects
   for (focal_var in predictor_vars) {
 
     grid_df <- expand.grid(
@@ -907,15 +878,14 @@ run_treearchi_group_mlr <- function(data_path,
       ) +
       theme_effect(base_size = 19)
 
-    safe_ggsave(file.path(dir_lines, paste0(out_name, ".png")), p, 11.5, 7.2, 600)
+    if (isTRUE(make_group_lineplots)) {
+      safe_ggsave(file.path(dir_lines, paste0(out_name, ".png")), p, 11.5, 7.2, 600)
+    }
   }
 
   all_effects_tbl <- dplyr::bind_rows(all_effects, .id = "effect_id")
   safe_write_csv(all_effects_tbl, file.path(dir_eff, "ALL_GROUP_LOCAL_EFFECTS.csv"))
 
-  # ------------------------------------------------------------
-  # Run info
-  # ------------------------------------------------------------
   safe_write_lines(
     c(
       "TreeArchi group-specific MLR",

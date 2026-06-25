@@ -7,7 +7,9 @@
 redraw_treearchi_sensitivity_lineplots(
   sensitivity_dir,
   effects_file = NULL,
-  out_dir = NULL
+  out_dir = NULL,
+  top_cases = NULL,
+  output_level = c("focused", "full")
 )
 }
 \arguments{
@@ -16,6 +18,10 @@ redraw_treearchi_sensitivity_lineplots(
 \item{effects_file}{Optional collected effects CSV.}
 
 \item{out_dir}{Optional output directory.}
+
+\item{top_cases}{Optional data frame from select_treearchi_sensitivity_top_cases().}
+
+\item{output_level}{Either "focused" or "full".}
 }
 \value{
 Invisibly returns output directory.

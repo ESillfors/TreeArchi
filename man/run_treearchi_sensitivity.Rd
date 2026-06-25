@@ -15,12 +15,19 @@ run_treearchi_sensitivity(
   trim_props = c(0, 0.1, 0.2, 0.3),
   trim_tails = c("lower", "upper"),
   group_reference = NULL,
+  reference_group = NULL,
+  make_convergence_ranking = FALSE,
+  convergence_top_n = 5,
   random_effect_var = "genus",
   id_col = "tls_id",
   quadratic_vars = NULL,
   interaction_pairs = NULL,
   analysis_tag = "SENSITIVITY",
-  run_diagnostics = TRUE
+  run_diagnostics = TRUE,
+  output_level = c("focused", "full"),
+  top_n = 5,
+  create_summary_outputs = TRUE,
+  redraw_lineplots = TRUE
 )
 }
 \arguments{
@@ -42,7 +49,13 @@ run_treearchi_sensitivity(
 
 \item{trim_tails}{Tails to trim: "lower" and/or "upper".}
 
-\item{group_reference}{Reference group.}
+\item{group_reference}{Reference group used in group MLR models.}
+
+\item{reference_group}{One or more reference groups used for convergence ranking.}
+
+\item{make_convergence_ranking}{Logical. If TRUE, run convergence ranking after collecting local effects.}
+
+\item{convergence_top_n}{Number of top convergence cases per interaction.}
 
 \item{random_effect_var}{Random effect variable.}
 
@@ -55,11 +68,22 @@ run_treearchi_sensitivity(
 \item{analysis_tag}{Analysis tag.}
 
 \item{run_diagnostics}{Logical.}
+
+\item{output_level}{Either "focused" or "full". Focused draws only top-case figures.}
+
+\item{top_n}{Number of top sensitivity cases per target group x interaction.}
+
+\item{create_summary_outputs}{Logical. If TRUE, collect effects and create top-case tables.}
+
+\item{redraw_lineplots}{Logical. If TRUE, redraw sensitivity lineplots after collection.}
 }
 \value{
-Invisibly returns a data frame with sensitivity run status.
+Invisibly returns a list with run status, top cases, convergence cases, and output paths.
 }
 \description{
 Re-runs group MLR analyses after trimming lower or upper tails of selected
-variables within selected target groups.
+variables within selected target groups. After the model runs, the function
+can automatically collect local effects, select top sensitivity cases, redraw
+sensitivity lineplots, and optionally rank convergence cases against a
+reference group profile.
 }

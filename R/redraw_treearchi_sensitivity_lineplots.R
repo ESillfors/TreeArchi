@@ -3,12 +3,18 @@
 #' @param sensitivity_dir Sensitivity output directory.
 #' @param effects_file Optional collected effects CSV.
 #' @param out_dir Optional output directory.
+#' @param top_cases Optional data frame from select_treearchi_sensitivity_top_cases().
+#' @param output_level Either "focused" or "full".
 #'
 #' @return Invisibly returns output directory.
 #' @export
 redraw_treearchi_sensitivity_lineplots <- function(sensitivity_dir,
                                                    effects_file = NULL,
-                                                   out_dir = NULL) {
+                                                   out_dir = NULL,
+                                                   top_cases = NULL,
+                                                   output_level = c("focused", "full")) {
+
+  output_level <- match.arg(output_level)
 
   if (!dir.exists(sensitivity_dir)) {
     stop("sensitivity_dir does not exist.", call. = FALSE)
@@ -23,7 +29,14 @@ redraw_treearchi_sensitivity_lineplots <- function(sensitivity_dir,
   }
 
   if (is.null(out_dir)) {
-    out_dir <- file.path(sensitivity_dir, "SENSITIVITY_LINEPLOTS_REDRAWN")
+    out_dir <- file.path(
+      sensitivity_dir,
+      ifelse(
+        output_level == "focused",
+        "SENSITIVITY_LINEPLOTS_FOCUSED",
+        "SENSITIVITY_LINEPLOTS_FULL"
+      )
+    )
   }
 
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -67,8 +80,68 @@ redraw_treearchi_sensitivity_lineplots <- function(sensitivity_dir,
   dat$group_level <- as.character(dat$group_level)
   dat$focal_var <- as.character(dat$focal_var)
   dat$partner_var <- as.character(dat$partner_var)
-  dat$trim_prop <- as.numeric(dat$trim_prop)
-  dat$local_beta <- as.numeric(dat$local_beta)
+  dat$trim_prop <- suppressWarnings(as.numeric(dat$trim_prop))
+  dat$local_beta <- suppressWarnings(as.numeric(dat$local_beta))
+
+  dat <- dat[
+    is.finite(dat$trim_prop) &
+      is.finite(dat$local_beta),
+    ,
+    drop = FALSE
+  ]
+
+  if (nrow(dat) == 0) {
+    stop("No finite sensitivity lineplot rows found.", call. = FALSE)
+  }
+
+  # ------------------------------------------------------------
+  # Optional focused filtering
+  # ------------------------------------------------------------
+
+  if (!is.null(top_cases) && output_level == "focused") {
+
+    needed_top <- c(
+      "target_group",
+      "trim_var",
+      "trim_tail",
+      "focal_var",
+      "partner_var"
+    )
+
+    missing_top <- setdiff(needed_top, names(top_cases))
+
+    if (length(missing_top) > 0) {
+      stop(
+        "top_cases is missing required column(s): ",
+        paste(missing_top, collapse = ", "),
+        call. = FALSE
+      )
+    }
+
+    key_dat <- paste(
+      dat$target_group,
+      dat$trim_var,
+      dat$trim_tail,
+      dat$focal_var,
+      dat$partner_var,
+      sep = "___"
+    )
+
+    key_top <- paste(
+      as.character(top_cases$target_group),
+      as.character(top_cases$trim_var),
+      as.character(top_cases$trim_tail),
+      as.character(top_cases$focal_var),
+      as.character(top_cases$partner_var),
+      sep = "___"
+    )
+
+    dat <- dat[key_dat %in% key_top, , drop = FALSE]
+
+    if (nrow(dat) == 0) {
+      stop("No rows left after filtering to top_cases.", call. = FALSE)
+    }
+  }
 
   dat$trim_label <- ifelse(
     dat$trim_prop == 0,
@@ -137,7 +210,7 @@ redraw_treearchi_sensitivity_lineplots <- function(sensitivity_dir,
         linetype = "dashed",
         color = "grey60"
       ) +
-      ggplot2::geom_line() +
+      ggplot2::geom_line(lineend = "round") +
       ggplot2::geom_point(size = 2.3) +
       ggplot2::facet_grid(partner_class ~ trim_label) +
       ggplot2::scale_linewidth_identity() +
@@ -159,7 +232,8 @@ redraw_treearchi_sensitivity_lineplots <- function(sensitivity_dir,
         subtitle = paste0(
           "Target group: ", cc$target_group,
           " | trim variable: ", cc$trim_var,
-          " | tail: ", cc$trim_tail
+          " | tail: ", cc$trim_tail,
+          " | output: ", output_level
         ),
         x = paste0("Level of ", cc$focal_var),
         y = "Estimated local effect",
@@ -170,24 +244,23 @@ redraw_treearchi_sensitivity_lineplots <- function(sensitivity_dir,
         )
       )
 
-    out_subdir <- file.path(
-      out_dir,
-      safe_filename(cc$target_group),
-      safe_filename(cc$trim_var),
-      safe_filename(cc$trim_tail)
-    )
-
-    dir.create(out_subdir, recursive = TRUE, showWarnings = FALSE)
+    dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
     fname <- paste0(
-      "SENS_",
+      "TG",
+      safe_filename(cc$target_group),
+      "_",
+      safe_filename(cc$trim_var),
+      "_",
+      safe_filename(cc$trim_tail),
+      "_",
       safe_filename(cc$focal_var),
       "_BY_",
       safe_filename(cc$partner_var),
       ".png"
     )
 
-    out_path <- file.path(out_subdir, fname)
+    out_path <- file.path(out_dir, fname)
 
     ggplot2::ggsave(
       filename = out_path,
@@ -205,9 +278,14 @@ redraw_treearchi_sensitivity_lineplots <- function(sensitivity_dir,
       trim_tail = cc$trim_tail,
       focal_var = cc$focal_var,
       partner_var = cc$partner_var,
+      output_level = output_level,
       figure_png = out_path,
       stringsAsFactors = FALSE
     )
+  }
+
+  if (length(index_rows) == 0) {
+    stop("No sensitivity lineplots were created.", call. = FALSE)
   }
 
   index_tbl <- do.call(rbind, index_rows)
@@ -216,6 +294,25 @@ redraw_treearchi_sensitivity_lineplots <- function(sensitivity_dir,
     index_tbl,
     file.path(out_dir, "INDEX_SENSITIVITY_LINEPLOTS.csv"),
     row.names = FALSE
+  )
+
+  base::writeLines(
+    c(
+      "TreeArchi sensitivity lineplots",
+      paste0("Created: ", Sys.time()),
+      paste0("Sensitivity directory: ", sensitivity_dir),
+      paste0("Effects file: ", effects_file),
+      paste0("Output directory: ", out_dir),
+      paste0("Output level: ", output_level),
+      "",
+      "Output level interpretation:",
+      "- focused: lineplots are drawn only for top-ranked sensitivity cases if top_cases is provided.",
+      "- full: lineplots are drawn for all sensitivity combinations in the effects file.",
+      "",
+      "Index:",
+      "INDEX_SENSITIVITY_LINEPLOTS.csv"
+    ),
+    con = file.path(out_dir, "RUN_INFO.txt")
   )
 
   message("Sensitivity lineplots saved to: ", out_dir)
